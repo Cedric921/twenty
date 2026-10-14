@@ -12,6 +12,16 @@ describe('sanitizeURL', () => {
     expect(sanitizeURL('example.com/')).toBe('example.com');
   });
 
+  test('should only strip www. at the start of the hostname', () => {
+    expect(sanitizeURL('https://newww.com')).toBe('newww.com');
+    expect(sanitizeURL('slowww.io')).toBe('slowww.io');
+    expect(sanitizeURL('https://www.newww.com/')).toBe('newww.com');
+  });
+
+  test('should strip the scheme regardless of its case', () => {
+    expect(sanitizeURL('Https://WWW.example.com')).toBe('example.com');
+  });
+
   test('should handle undefined input', () => {
     expect(sanitizeURL(undefined)).toBe('');
   });
