@@ -443,7 +443,7 @@ export const isRecordMatchingFilter = ({
 
         const keys = ['primaryLinkLabel', 'primaryLinkUrl'] as const;
 
-        return keys.some((key) => {
+        const isMatchingPrimaryLink = keys.some((key) => {
           const value = linksFilter[key];
           if (value === undefined) {
             return false;
@@ -454,6 +454,15 @@ export const isRecordMatchingFilter = ({
             value: record[filterKey]?.[key],
           });
         });
+
+        return (
+          isMatchingPrimaryLink ||
+          (linksFilter.secondaryLinks !== undefined &&
+            isMatchingRawJsonFilter({
+              rawJsonFilter: linksFilter.secondaryLinks,
+              value: record[filterKey]?.secondaryLinks,
+            }))
+        );
       }
       case FieldMetadataType.DATE:
       case FieldMetadataType.DATE_TIME: {
@@ -516,21 +525,25 @@ export const isRecordMatchingFilter = ({
       case FieldMetadataType.EMAILS: {
         const emailsFilter = filterValue as EmailsFilter;
 
-        if (emailsFilter.primaryEmail === undefined) {
-          return false;
-        }
-
-        return isMatchingStringFilter({
-          stringFilter: emailsFilter.primaryEmail,
-          value: record[filterKey]?.primaryEmail,
-        });
+        return (
+          (emailsFilter.primaryEmail !== undefined &&
+            isMatchingStringFilter({
+              stringFilter: emailsFilter.primaryEmail,
+              value: record[filterKey]?.primaryEmail,
+            })) ||
+          (emailsFilter.additionalEmails !== undefined &&
+            isMatchingRawJsonFilter({
+              rawJsonFilter: emailsFilter.additionalEmails,
+              value: record[filterKey]?.additionalEmails,
+            }))
+        );
       }
       case FieldMetadataType.PHONES: {
         const phonesFilter = filterValue as PhonesFilter;
 
-        const keys: (keyof PhonesFilter)[] = ['primaryPhoneNumber'];
+        const keys = ['primaryPhoneNumber', 'primaryPhoneCallingCode'] as const;
 
-        return keys.some((key) => {
+        const isMatchingPrimaryPhone = keys.some((key) => {
           const value = phonesFilter[key];
           if (value === undefined) {
             return false;
@@ -541,6 +554,15 @@ export const isRecordMatchingFilter = ({
             value: record[filterKey]?.[key],
           });
         });
+
+        return (
+          isMatchingPrimaryPhone ||
+          (phonesFilter.additionalPhones !== undefined &&
+            isMatchingRawJsonFilter({
+              rawJsonFilter: phonesFilter.additionalPhones,
+              value: record[filterKey]?.additionalPhones,
+            }))
+        );
       }
       case FieldMetadataType.RELATION:
       case FieldMetadataType.MORPH_RELATION: {

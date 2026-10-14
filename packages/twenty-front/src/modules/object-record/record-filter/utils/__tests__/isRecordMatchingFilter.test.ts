@@ -1,8 +1,10 @@
 import { type RecordGqlOperationFilter } from 'twenty-shared/types';
 import { mockedCompanyRecords } from '~/testing/mock-data/generated/data/companies/mock-companies-data';
+import { mockedPersonRecords } from '~/testing/mock-data/generated/data/people/mock-people-data';
 import { getTestEnrichedObjectMetadataItemsMock } from '~/testing/utils/getTestEnrichedObjectMetadataItemsMock';
 
 import { type Company } from '@/companies/types/Company';
+import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 import { getCompanyDomainName } from '@/object-metadata/utils/getCompanyDomainName';
 import { getRecordFromRecordNode } from '@/object-record/cache/utils/getRecordFromRecordNode';
 import { isRecordMatchingFilter } from '@/object-record/record-filter/utils/isRecordMatchingFilter';
@@ -987,6 +989,118 @@ describe('isRecordMatchingFilter', () => {
           objectMetadataItems,
         }),
       ).toBe(false);
+    });
+  });
+
+  describe('Emails, Phones and Links Filters', () => {
+    const personMockObjectMetadataItem = objectMetadataItems.find(
+      (item) => item.nameSingular === 'person',
+    )!;
+
+    const personMock = getRecordFromRecordNode<ObjectRecord>({
+      recordNode: mockedPersonRecords[0],
+    });
+
+    const isPersonMatching = (
+      record: ObjectRecord,
+      filter: RecordGqlOperationFilter,
+    ) =>
+      isRecordMatchingFilter({
+        record,
+        filter,
+        objectMetadataItem: personMockObjectMetadataItem,
+        objectMetadataItems,
+      });
+
+    it('matches emails "is empty" on the additional emails', () => {
+      const filter: RecordGqlOperationFilter = {
+        or: [
+          { emails: { additionalEmails: { is: 'NULL' } } },
+          { emails: { additionalEmails: { like: '[]' } } },
+        ],
+      };
+
+      expect(
+        isPersonMatching(
+          { ...personMock, emails: { primaryEmail: '', additionalEmails: [] } },
+          filter,
+        ),
+      ).toBe(true);
+
+      expect(
+        isPersonMatching(
+          {
+            ...personMock,
+            emails: { primaryEmail: '', additionalEmails: ['a@acme.com'] },
+          },
+          filter,
+        ),
+      ).toBe(false);
+    });
+
+    it('matches emails "contains" on an additional email', () => {
+      const filter: RecordGqlOperationFilter = {
+        or: [
+          { emails: { primaryEmail: { ilike: '%acme%' } } },
+          { emails: { additionalEmails: { like: '%acme%' } } },
+        ],
+      };
+
+      expect(
+        isPersonMatching(
+          {
+            ...personMock,
+            emails: {
+              primaryEmail: 'john@example.com',
+              additionalEmails: ['john@acme.com'],
+            },
+          },
+          filter,
+        ),
+      ).toBe(true);
+    });
+
+    it('matches phones "contains" on the calling code and additional phones', () => {
+      const phones = {
+        primaryPhoneNumber: '7114567890',
+        primaryPhoneCountryCode: 'FR',
+        primaryPhoneCallingCode: '+33',
+        additionalPhones: [{ number: '5550001', callingCode: '+1' }],
+      };
+
+      expect(
+        isPersonMatching(
+          { ...personMock, phones },
+          { phones: { primaryPhoneCallingCode: { ilike: '%33%' } } },
+        ),
+      ).toBe(true);
+
+      expect(
+        isPersonMatching(
+          { ...personMock, phones },
+          { phones: { additionalPhones: { like: '%5550001%' } } },
+        ),
+      ).toBe(true);
+    });
+
+    it('matches links "contains" on the secondary links', () => {
+      const companyMock = {
+        ...companiesMock[0],
+        linkedinLink: {
+          primaryLinkUrl: 'https://linkedin.com/company/acme',
+          primaryLinkLabel: '',
+          secondaryLinks: [{ url: 'https://acme.dev', label: '' }],
+        },
+      };
+
+      expect(
+        isRecordMatchingFilter({
+          record: companyMock,
+          filter: { linkedinLink: { secondaryLinks: { like: '%acme.dev%' } } },
+          objectMetadataItem: companyMockObjectMetadataItem,
+          objectMetadataItems,
+        }),
+      ).toBe(true);
     });
   });
 });
